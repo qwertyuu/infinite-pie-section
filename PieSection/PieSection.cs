@@ -21,6 +21,10 @@ namespace RaphsTools
 
         public PieSection(float sectionSize, float pieSize)
         {
+            if (sectionSize >= pieSize)
+            {
+                throw new Exception("Section size must be smaller than the pie size");
+            }
             _sectionSize = sectionSize;
             _absoluteCenter = _sectionSize / 2;
             _pieSize = pieSize;
@@ -28,65 +32,12 @@ namespace RaphsTools
             _upperBound = sectionSize;
         }
 
+        // Note that if you need other functionnality such as diff with lower bound or diff with upper bound, it can be done easily based on this one.
+        // Just need to call fitBoundsToValue(inputValue) and then unSkew the inputValue and do your calculations.
+        // If you want to submit a PR with your implementations and unit tests, I will welcome those with open arms
         public float diffWithCenter(float inputValue)
         {
-            if (!valueInBounds(inputValue)) {
-                // Compute the direct (or trivial) distances, going from the inputValue to the bound
-
-                // DLB means Distance to lower bound. 
-                float DLB = Math.Abs(inputValue - _lowerBound);
-                // DUB means Distance to upper bound
-                float DUB = Math.Abs(inputValue - _upperBound);
-
-                // In this case, the _lowerBound is larger than the _upperBound, because the section is crossing the pie's crossover point
-                // Example: for a 360 degrees circle, the section could be at [315, 45] for a 90 degree Pie Section.
-                if (inputValue < _lowerBound && inputValue > _upperBound)
-                {
-                    // We can directly pick the closest bound and pin it to the value that has been passed
-                    if (DUB < DLB)
-                    {
-                        upperBound = inputValue;
-                    }
-                    else
-                    {
-                        lowerBound = inputValue;
-                    }
-                }
-                // Now we find that the value input is lower in value than both bounds.
-                // The instinct is to pick the lower bound as it seems closest, but we actually need to go all the way around
-                //  the pie the other way to make sure the upper bound isn't closer this way
-                else if (inputValue < _lowerBound && inputValue < _upperBound)
-                {
-                    // Round trip around earth guys. It's happening
-                    // DUBPrime is the distance to get to UpperBound going the other way around (over the 0)
-                    float DUBPrime = _pieSize - _upperBound + inputValue;
-                    if (DLB < DUB && DLB < DUBPrime)
-                    {
-                        lowerBound = inputValue;
-                    }
-                    else
-                    {
-                        upperBound = inputValue;
-                    }
-                }
-                // Now we find that the value input is higher in value than both bounds.
-                // The instinct is to pick the upper bound as it seems closest, but we actually need to go all the way around
-                //  the pie the other way to make sure the lower bound isn't closer this way
-                else
-                {
-                    // Round trip around earth guys. It's happening
-                    // DLBPrime is the distance to get to LowerBound going the other way around (over the 0)
-                    float DLBPrime = _pieSize - inputValue + _lowerBound;
-                    if (DUB < DLB && DUB < DLBPrime)
-                    {
-                        upperBound = inputValue;
-                    }
-                    else
-                    {
-                        lowerBound = inputValue;
-                    }
-                }
-            }
+            fitBoundsToValue(inputValue);
 
             // Whether we adjusted the bounds or not, we now need to find the distance of the point to the center of the pie section
             // We do that by essentially getting rid of the offsets that we are currently in, so setting all our values back to [0, _sectionSize].
@@ -95,14 +46,78 @@ namespace RaphsTools
             return -(_absoluteCenter - unSkew(inputValue));
         }
 
+        private void fitBoundsToValue(float inputValue)
+        {
+            if (valueInBounds(inputValue))
+            {
+                return;
+            }
+
+            // Compute the direct (or trivial) distances, going from the inputValue to the bound
+
+            // DLB means Distance to lower bound. 
+            float DLB = Math.Abs(inputValue - _lowerBound);
+            // DUB means Distance to upper bound
+            float DUB = Math.Abs(inputValue - _upperBound);
+
+            // In this case, the _lowerBound is larger than the _upperBound, because the section is crossing the pie's crossover point
+            // Example: for a 360 degrees circle, the section could be at [315, 45] for a 90 degree Pie Section.
+            if (inputValue < _lowerBound && inputValue > _upperBound)
+            {
+                // We can directly pick the closest bound and pin it to the value that has been passed
+                if (DUB < DLB)
+                {
+                    upperBound = inputValue;
+                }
+                else
+                {
+                    lowerBound = inputValue;
+                }
+            }
+            // Now we find that the value input is lower in value than both bounds.
+            // The instinct is to pick the lower bound as it seems closest, but we actually need to go all the way around
+            //  the pie the other way to make sure the upper bound isn't closer this way
+            else if (inputValue < _lowerBound && inputValue < _upperBound)
+            {
+                // Round trip around earth guys. It's happening
+                // DUBPrime is the distance to get to UpperBound going the other way around (over the 0)
+                float DUBPrime = _pieSize - _upperBound + inputValue;
+                if (DLB < DUB && DLB < DUBPrime)
+                {
+                    lowerBound = inputValue;
+                }
+                else
+                {
+                    upperBound = inputValue;
+                }
+            }
+            // Now we find that the value input is higher in value than both bounds.
+            // The instinct is to pick the upper bound as it seems closest, but we actually need to go all the way around
+            //  the pie the other way to make sure the lower bound isn't closer this way
+            else
+            {
+                // Round trip around earth guys. It's happening
+                // DLBPrime is the distance to get to LowerBound going the other way around (over the 0)
+                float DLBPrime = _pieSize - inputValue + _lowerBound;
+                if (DUB < DLB && DUB < DLBPrime)
+                {
+                    upperBound = inputValue;
+                }
+                else
+                {
+                    lowerBound = inputValue;
+                }
+            }
+        }
+
         // Normalizes the value to a simple [0, _sectionSize] model, by shifting it back as much as the _lowerBounds is shifted
         // Note that depending on the value passed in, the output could be larger than _sectionSize if the value is outside of the bounds to begin with.
         // Visually, this is what happens:
         // Where l is the lower bound, * is the value, u is the upper bound and | is the pieSize
         // Skewed value:    0-------l---*-u-----|
         // UnSkewed value:  l---*-u-------------|
-        // Also note that this example shows as if the bounds are moving, but this function only unskewes the * (value) but does not touch the actual bounds.
-        // Unskewed bounds are easy to guess as they are 0 and _sectionSize respectively then unskewed.
+        // Also note that this example supposes the bounds are moving, but this function only unskewes the * (value) and does not touch the actual bounds.
+        // Unskewed bounds are easy to guess as they are 0 and _sectionSize respectively when value is unskewed.
         private float unSkew(float value)
         {
             return wrap(value - _lowerBound);

@@ -1,3 +1,4 @@
+using System;
 using Xunit;
 
 namespace RaphsTools.UnitTests.Services
@@ -288,6 +289,18 @@ namespace RaphsTools.UnitTests.Services
             Assert.Equal(-45, diff);
             Assert.Equal(350, _pieSection.lowerBound);
             Assert.NotEqual(350, _pieSection.upperBound);
+        }
+
+        [Fact]
+        public void Constructor_InputPieSizeIsEqualToSectionSize_ThrowsException()
+        {
+            Assert.Throws<Exception>(() => new PieSection(5, 5));
+        }
+
+        [Fact]
+        public void Constructor_InputPieSizeSmallerToSectionSize_ThrowsException()
+        {
+            Assert.Throws<Exception>(() => new PieSection(10, 5));
         }
     }
 }
